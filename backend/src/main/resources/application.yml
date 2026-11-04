@@ -1,0 +1,60 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: lostfound
+
+  datasource:
+    # 本地单机部署（DC-03）：前后端、库、文件存储同机
+    url: jdbc:mysql://localhost:3306/lostfound?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${DB_USER:lf_app}
+    password: ${DB_PASSWORD:lf_dev_2026}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+  jackson:
+    time-zone: Asia/Shanghai
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+# ---- 本项目的业务配置（QR-06：规则与状态扩展只改配置，不改流程代码）----
+lf:
+  auth:
+    # KV-01：mock = 本地模拟登录；sso = 学校统一身份认证（接入获批后切换，业务代码不变）
+    mode: mock
+    # 票据一次性有效，换取时间上限（QR-01：<= 1s）
+    ticket-timeout-ms: 3000
+  claim:
+    pending-hours: 24      # FR-10：待处理超 24h 自动结束
+    handover-hours: 72     # FR-10：待交接超 72h 自动结束
+    scan-interval-ms: 60000
+  visibility:
+    # QR-04：认领关系结束后 30 天不可查
+    voucher-hidden-after-days: 30
+  voucher:
+    dir: ./uploads/vouchers

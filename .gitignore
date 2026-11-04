@@ -1,0 +1,17 @@
+# ---- 构建产物 ----
+backend/target/
+frontend/node_modules/
+frontend/dist/
+
+# ---- IDE ----
+.idea/
+*.iml
+.vscode/
+
+# ---- 运行时文件（本地凭证图片、日志）----
+backend/uploads/
+*.log
+
+# ---- 操作系统 ----
+Thumbs.db
+.DS_Store
