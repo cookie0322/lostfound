@@ -8,7 +8,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 占用记录（对应架构 表附 1-3 的 hold）。
+ * 占用记录（对应架构 表附 1-2 的 hold）。
  *
  * <p>关键设计（架构 3.1【Original】决策 12）：本表**只存活跃占用**，
  * 申请时插入一行，认领进入终态时直接删除该行，历史由 claim 主表保留。

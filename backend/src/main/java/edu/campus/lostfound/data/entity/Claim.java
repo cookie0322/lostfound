@@ -8,7 +8,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 认领申请（对应架构 表附 1-3 的 claim）。
+ * 认领申请（对应架构 表附 1-2 的 claim）。
  *
  * <p>五态取值：0 待处理 / 1 待交接 / 2 仲裁中 / 3 已完成 / 4 已结束。
  * 结束原因：1 被拒绝 / 2 超时 / 3 撤回 / 4 裁决驳回。

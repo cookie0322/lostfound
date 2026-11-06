@@ -16,7 +16,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * 这里只负责把"唯一索引撞车"翻译成 409，不做任何重试（FR-07 / QR-09）。
  */
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class   GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 

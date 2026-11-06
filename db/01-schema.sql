@@ -2,12 +2,14 @@
 -- 01-schema.sql  建表 + 授权（以 root 执行，在应用启动前跑一次）
 -- 用法： mysql -u root -p lostfound < db/01-schema.sql
 --
--- 设计来源：《软件架构设计专项》附件 2 表附 1-1 / 1-3，按 2026-11-03 的
--- 需求变更（SSO 两态认证、认领五态）修正后的最终口径。
--- 与文档原表的 4 处差异及理由见 backend/README.md「数据库口径」一节。
+-- 设计来源：《软件架构设计专项》附件 2 表附 1-1 / 1-2，按 2026-11-05 的
+-- 需求变更（SSO 两态认证、不采集联系方式、认领五态）修正后的最终口径。
+-- 与文档原表的 4 处补充及理由见各字段注释。
 -- =====================================================================
 
 SET NAMES utf8mb4;
+-- 必须在库内执行，否则 CREATE TABLE 会报 ERROR 1046
+USE lostfound;
 
 -- ---------------------------------------------------------------------
 -- 1. account  用户账号（表附 1-1）
@@ -21,8 +23,6 @@ CREATE TABLE IF NOT EXISTS account (
     real_name        VARCHAR(20)   NULL COMMENT '姓名，展示时脱敏为首字+*',
     auth_state       TINYINT       NOT NULL DEFAULT 0 COMMENT '0 未认证 / 1 已认证（FR-04）',
     role             VARCHAR(16)   NOT NULL DEFAULT 'USER' COMMENT 'USER / ADMIN',
-    phone_enc        VARBINARY(128) NULL COMMENT '手机号密文（AES-256）',
-    contact_visible  TINYINT       NOT NULL DEFAULT 0 COMMENT '0 认领中可见 / 1 始终可见 / 2 不公开',
     created_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id),
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS item (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT '招领信息台账（M2，只读）';
 
 -- ---------------------------------------------------------------------
--- 3. claim  认领申请（表附 1-3）
+-- 3. claim  认领申请（表附 1-2）
 --    五态：0 待处理 / 1 待交接 / 2 仲裁中 / 3 已完成 / 4 已结束
 --    结束原因：1 被拒绝 / 2 超时 / 3 撤回 / 4 裁决驳回
 -- ---------------------------------------------------------------------
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS claim (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT '认领申请';
 
 -- ---------------------------------------------------------------------
--- 4. claim_hold  占用（表附 1-3 + 架构 3.1 决策 12）
+-- 4. claim_hold  占用（表附 1-2 + 架构 3.1 决策 12）
 --    只存活跃占用：申请时插入、进入终态时删除
 --    因此 item_id 上是普通唯一索引，不需要 released_at / active_flag
 -- ---------------------------------------------------------------------
