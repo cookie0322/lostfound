@@ -2,7 +2,6 @@ package edu.campus.lostfound.auth;
 
 import edu.campus.lostfound.web.ApiResult;
 import edu.campus.lostfound.web.BizException;
-import edu.campus.lostfound.web.RequireRole;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,12 +12,15 @@ public class AuthController {
     public record LoginRequest(String loginName) {}
     public record BindRequest(String ticket) {}
     public record UnbindRequest(boolean confirm) {}
+    public record AppealRequest(String studentNo, String reason) {}
 
 
     private final BindingAppService bindingAppService;
+    private final AppealAppService appealAppService;
 
-    public AuthController(BindingAppService bindingAppService) {
+    public AuthController(BindingAppService bindingAppService, AppealAppService appealAppService) {
         this.bindingAppService = bindingAppService;
+        this.appealAppService = appealAppService;
     }
 
     /** 1. 模拟"既有登录模块" */
@@ -38,18 +40,7 @@ public class AuthController {
     @PostMapping("/unbind")
     public ApiResult<AccountView> unbind(@RequestBody UnbindRequest req, HttpSession session) {
         Long userId = currentUserId(session);
-        if (userId == null) throw BizException.unauthorized("请先登录");
         return ApiResult.ok(bindingAppService.unbind(userId, req.confirm()));
-    }
-
-    // 管理员强制解绑
-    @RequireRole("ADMIN")
-    @PostMapping("/admin/appeal/{userId}/unbind")
-    public ApiResult<AccountView> adminUnbind(@PathVariable Long userId,
-                                              @RequestBody UnbindRequest req,
-                                              HttpSession session) {
-        Long adminId = currentUserId(session);
-        return ApiResult.ok(bindingAppService.adminUnbind(adminId, userId, req.confirm()));
     }
 
 
@@ -57,6 +48,13 @@ public class AuthController {
     @GetMapping("/me")
     public ApiResult<AccountView> me(HttpSession session) {
         return ApiResult.ok(bindingAppService.me(currentUserId(session)));
+    }
+
+    /** 5. 申诉：学号被他人占用（FR-03 提示的入口 / FR-05） */
+    @PostMapping("/appeal")
+    public ApiResult<Long> appeal(@RequestBody AppealRequest req, HttpSession session) {
+        Long userId = currentUserId(session);
+        return ApiResult.ok(appealAppService.submit(userId, req.studentNo(), req.reason()).getAppealId());
     }
 
     /** 未登录一律 401，不能是 500（QR-03 的越权矩阵要能区分 401 与 403） */
