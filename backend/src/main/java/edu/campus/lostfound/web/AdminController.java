@@ -34,7 +34,6 @@ public class AdminController {
     }
 
     public record ResolveAppealRequest(String action, String reason) {}
-
     /** 处理申诉：UNBIND 解除原绑定 / REJECT 驳回（FR-05） */
     @RequireRole("ADMIN")
     @PostMapping("/appeals/{id}/resolve")
@@ -55,6 +54,14 @@ public class AdminController {
 
     // 认领裁决
     public record VerdictRequest(String verdict, String reason) {}
+
+    /** 按状态列出认领（?state=2 取仲裁中的单子） */
+    @RequireRole("ADMIN")
+    @GetMapping("/claims")
+    public ApiResult<List<edu.campus.lostfound.claim.ClaimView>> claims(
+            @RequestParam(required = false) Integer state) {
+        return ApiResult.ok(claimAppService.listByState(state));
+    }
 
     @RequireRole("ADMIN")
     @PostMapping("/claims/{id}/verdict")

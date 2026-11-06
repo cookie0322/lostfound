@@ -36,8 +36,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ClaimConcurrencyTest {
 
     private static final int THREADS = 50;
-    private static final long APPLICANT = 5L;   // zhao，种子数据里已认证
-    private static final long PUBLISHER = 3L;   // li，种子数据里已认证
 
     @Autowired
     private ClaimAppService claimAppService;
@@ -47,22 +45,61 @@ class ClaimConcurrencyTest {
     private ClaimMapper claimMapper;
     @Autowired
     private ClaimHoldMapper claimHoldMapper;
+    @Autowired
+    private edu.campus.lostfound.data.mapper.AccountMapper accountMapper;
+    @Autowired
+    private edu.campus.lostfound.data.mapper.NoticeMapper noticeMapper;
 
     private Long itemId;
+    private Long applicantId;
+    private Long publisherId;
+
+    /**
+     * 测试自己造账号与物品，不依赖 db/02-seed.sql 的当前状态。
+     * （用种子账号会踩坑：演示过程中 zhao 被解绑过，一跑就 403。）
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        applicantId = newAccount("并行申请人");
+        publisherId = newAccount("并行拾得者");
+    }
+
+    private Long newAccount(String name) {
+        edu.campus.lostfound.data.entity.Account a = new edu.campus.lostfound.data.entity.Account();
+        a.setLoginName("t_" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 12));
+        a.setRealName(name);
+        a.setAuthState(1);
+        a.setRole("USER");
+        a.setCreatedAt(LocalDateTime.now());
+        accountMapper.insert(a);
+        return a.getUserId();
+    }
 
     @AfterEach
     void cleanup() {
-        if (itemId == null) {
-            return;
+        if (itemId != null) {
+            List<Long> claimIds = claimMapper.selectList(
+                            new LambdaQueryWrapper<edu.campus.lostfound.data.entity.Claim>()
+                                    .eq(edu.campus.lostfound.data.entity.Claim::getItemId, itemId))
+                    .stream().map(c -> c.getClaimId()).toList();
+            claimIds.forEach(id -> claimHoldMapper.delete(
+                    new LambdaQueryWrapper<ClaimHold>().eq(ClaimHold::getClaimId, id)));
+            claimIds.forEach(claimMapper::deleteById);
+            itemMapper.deleteById(itemId);
         }
-        List<Long> claimIds = claimMapper.selectList(
-                        new LambdaQueryWrapper<edu.campus.lostfound.data.entity.Claim>()
-                                .eq(edu.campus.lostfound.data.entity.Claim::getItemId, itemId))
-                .stream().map(c -> c.getClaimId()).toList();
-        claimIds.forEach(id -> claimHoldMapper.delete(
-                new LambdaQueryWrapper<ClaimHold>().eq(ClaimHold::getClaimId, id)));
-        claimIds.forEach(claimMapper::deleteById);
-        itemMapper.deleteById(itemId);
+        // 通知表有外键指向 account，删账号前必须先删通知
+        for (Long uid : new Long[]{applicantId, publisherId}) {
+            if (uid != null) {
+                noticeMapper.delete(new LambdaQueryWrapper<edu.campus.lostfound.data.entity.Notice>()
+                        .eq(edu.campus.lostfound.data.entity.Notice::getReceiverId, uid));
+            }
+        }
+        if (applicantId != null) {
+            accountMapper.deleteById(applicantId);
+        }
+        if (publisherId != null) {
+            accountMapper.deleteById(publisherId);
+        }
     }
 
     @Test
@@ -74,7 +111,7 @@ class ClaimConcurrencyTest {
         item.setPlace("测试地点");
         item.setFoundAt(LocalDateTime.now());
         item.setStatus(0);
-        item.setPublisherId(PUBLISHER);
+        item.setPublisherId(publisherId);
         itemMapper.insert(item);
         itemId = item.getItemId();
 
@@ -88,7 +125,7 @@ class ClaimConcurrencyTest {
             pool.submit(() -> {
                 try {
                     start.await();
-                    claimAppService.apply(APPLICANT,
+                    claimAppService.apply(applicantId,
                             new ClaimAppService.ApplyRequest(itemId, List.of("特征一", "特征二", "特征三")), "USER");
                     ok.incrementAndGet();
                 } catch (DuplicateKeyException e) {

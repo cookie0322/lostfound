@@ -121,6 +121,19 @@ public class ClaimAppService {
         }
         return ClaimView.of(claim, currentUserId, role);
     }
+
+    /** 管理端：按状态列出认领（state=2 即仲裁中，供裁决页使用） */
+    public List<ClaimView> listByState(Integer state) {
+        LambdaQueryWrapper<Claim> query = new LambdaQueryWrapper<Claim>()
+                .orderByDesc(Claim::getCreatedAt);
+        if (state != null) {
+            query.eq(Claim::getState, state);
+        }
+        return claimMapper.selectList(query).stream()
+                .map(c -> ClaimView.of(c, null, "ADMIN"))
+                .toList();
+    }
+
     public Map<String, List<ClaimView>> getMine(Long userId, String role) {
         // 1. 查“我发起的”（我是申请人 applicant）
         List<Claim> applied = claimMapper.selectList(

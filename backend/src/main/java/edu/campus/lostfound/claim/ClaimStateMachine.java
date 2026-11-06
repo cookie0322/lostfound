@@ -8,6 +8,7 @@ import edu.campus.lostfound.data.entity.ClaimHold;
 import edu.campus.lostfound.data.entity.ClaimTransition;
 import edu.campus.lostfound.data.mapper.ClaimHoldMapper;
 import edu.campus.lostfound.data.mapper.ClaimTransitionMapper;
+import edu.campus.lostfound.data.mapper.ItemMapper;
 import edu.campus.lostfound.notice.NoticeService;
 import edu.campus.lostfound.web.BizException;
 import jakarta.annotation.PostConstruct;
@@ -25,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ClaimStateMachine {
     private final ClaimTransitionMapper transitionMapper;
     private final ClaimHoldMapper claimHoldMapper;
+    private final ItemMapper itemMapper;
     private final AuditRecorder auditRecorder;
     private final ObjectMapper objectMapper;
     private final NoticeService noticeService;
@@ -38,11 +40,13 @@ public class ClaimStateMachine {
 
     public ClaimStateMachine(ClaimTransitionMapper transitionMapper,
                              ClaimHoldMapper claimHoldMapper,
+                             ItemMapper itemMapper,
                              AuditRecorder auditRecorder,
                              ObjectMapper objectMapper,
                              NoticeService noticeService) {
         this.transitionMapper = transitionMapper;
         this.claimHoldMapper = claimHoldMapper;
+        this.itemMapper = itemMapper;
         this.auditRecorder = auditRecorder;
         this.objectMapper = objectMapper;
         this.noticeService = noticeService;
@@ -102,6 +106,15 @@ public class ClaimStateMachine {
             // 释放占用：只存活跃占用，释放即删（架构 3.1 决策 12）
             claimHoldMapper.delete(new LambdaQueryWrapper<ClaimHold>()
                     .eq(ClaimHold::getClaimId, claim.getClaimId()));
+
+            // 关键：认领成功后必须把物品置为"已完成"，否则占用释放后这条信息会被别人再次认领。
+            // item 属 M2 台账，本系统只读；这里是给 M2 模拟实现回写一个状态（表 1-1 非目标 2）。
+            if (toState == ClaimState.COMPLETED.code()) {
+                itemMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<edu.campus.lostfound.data.entity.Item>()
+                        .eq(edu.campus.lostfound.data.entity.Item::getItemId, claim.getItemId())
+                        .set(edu.campus.lostfound.data.entity.Item::getStatus, 1));
+            }
+
             // KV-03：关系结束后凭证再保留 N 天，之后即使有 URL 也不可查
             if (claim.getVoucherUrl() != null) {
                 claim.setVoucherVisibleUntil(LocalDateTime.now().plusDays(voucherHiddenAfterDays));
