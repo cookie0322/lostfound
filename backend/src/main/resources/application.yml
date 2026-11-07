@@ -49,6 +49,9 @@ lf:
     mode: mock
     # 票据一次性有效，换取时间上限（QR-01：<= 1s）
     ticket-timeout-ms: 3000
+    # mode=sso 时用于验签的共享密钥（学校下发，这里给开发期占位值）
+    sso:
+      shared-secret: dev-secret
   claim:
     pending-hours: 24      # FR-10：待处理超 24h 自动结束
     handover-hours: 72     # FR-10：待交接超 72h 自动结束
